@@ -33,9 +33,8 @@ final class DefaultAPIClient: NSObject, APIClient {
         request: Request,
         answerType: DataType.Type
     ) -> AnyPublisher<DataType, Error> {
-        let urlRequest = request.asURLRequest()
-        return defaultUrlSession
-            .dataTaskPublisher(for: urlRequest)
+        defaultUrlSession
+            .dataTaskPublisher(for: request.asURLRequest())
             .tryMap { (data, response) -> Data in
                 guard let httpResponse = response as? HTTPURLResponse,
                       httpResponse.statusCode == 200 else {
