@@ -33,52 +33,17 @@ final class DefaultAPIClient: NSObject, APIClient {
         request: Request,
         answerType: DataType.Type
     ) -> AnyPublisher<DataType, Error> {
-        Deferred {
-            Future { promise in
-                let urlRequest = request.asURLRequest()
-                let task = self.defaultUrlSession.dataTask(with: urlRequest) { [weak self] data, urlResponse, error in
-                    if error != nil {
-                        promise(.failure(APIError.commonError))
-                    }
-                    
-                    if let self = self,
-                       let response = urlResponse as? HTTPURLResponse,
-                       let data = data {
-                        let result = self.mapResponse(
-                            response: response,
-                            data: data,
-                            answerType: answerType
-                        )
-                        switch result {
-                        case .success(let mappedData):
-                            promise(.success(mappedData))
-                        case .failure(let error):
-                            promise(.failure(error))
-                        }
-                    }
+        let urlRequest = request.asURLRequest()
+        return defaultUrlSession
+            .dataTaskPublisher(for: urlRequest)
+            .tryMap { (data, response) -> Data in
+                guard let httpResponse = response as? HTTPURLResponse,
+                      httpResponse.statusCode == 200 else {
+                    throw URLError(.badServerResponse)
                 }
-                task.resume()
+                return data
             }
-        }.eraseToAnyPublisher()
-    }
-    
-    // MARK: Private methods
-    
-    private func mapResponse<DataType: Decodable>(
-        response: HTTPURLResponse,
-        data: Data,
-        answerType: DataType.Type
-    ) -> Result<DataType, Error> {
-        switch response.statusCode {
-        case 200:
-            let decoder = JSONDecoder()
-            if let decodedData = try? decoder.decode(DataType.self, from: data) {
-                return .success(decodedData)
-            } else {
-                return .failure(APIError.malformedResponseJson)
-            }
-        default:
-            return .failure(APIError.commonError)
-        }
+            .decode(type: answerType, decoder: JSONDecoder())
+            .eraseToAnyPublisher()
     }
 }

@@ -108,7 +108,7 @@ final class PostListViewController: ViewController {
         displayError
             .receive(on: RunLoop.main)
             .sink { [weak self] error in
-                self?.delegate?.displayError(error)
+                
             }
             .store(in: &cancellables)
         
